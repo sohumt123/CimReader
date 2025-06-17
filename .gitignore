@@ -1,6 +1,8 @@
 # Environment variables
 .env
 .env.*
+frontend/node_modules/
+frontend/.env
 
 # Python
 __pycache__/
