@@ -1,8 +1,17 @@
 # Environment variables
 .env
 .env.*
-frontend/node_modules/
+.env.local
+.env.production
+.env.staging
 frontend/.env
+backend/.env
+
+# Dependencies
+frontend/node_modules/
+backend/venv/
+venv/
+ENV/
 
 # Python
 __pycache__/
@@ -25,17 +34,59 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.pyc
 
-# Virtual Environment
-venv/
-ENV/
+# FastAPI
+.pytest_cache/
+
+# Frontend build
+frontend/dist/
+frontend/build/
+frontend/.vite/
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+text.text
+output*.html
+output*.pdf
+input*.pdf
+sample*.pdf
+test_*.py
+
+# Backup files
+*.bak
+*.backup
+
+# Coverage
+coverage/
+.coverage
+.nyc_output
+
+# Documentation generated files
+*.toc
+*.aux
+*.out

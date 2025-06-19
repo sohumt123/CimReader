@@ -1,6 +1,6 @@
-# 4C Tool Backend
+# CIMez Backend
 
-This directory contains the backend code for the 4C Tool application.
+This directory contains the backend code for the CIMez application - an AI-powered PDF intelligence tool.
 
 ## Directory Structure
 

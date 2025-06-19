@@ -5,6 +5,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import Home from './components/Home';
 import PDFConverter from './components/PDFConverter';
+import { SummaryHistory } from './components/SummaryHistory';
 import { AuthProvider, useAuth } from './components/Auth';
 import './App.css';
 
@@ -50,6 +51,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/convert" element={session ? <PDFConverter /> : <SignInRequired />} />
+      <Route path="/summaries" element={session ? <SummaryHistory /> : <SignInRequired />} />
     </Routes>
   );
 }
@@ -58,7 +60,7 @@ function SignInRequired() {
   const { openModal } = useAuth();
   return (
     <div style={{ textAlign: 'center', marginTop: 80 }}>
-      <h2>You must be signed in to use the PDF Converter.</h2>
+      <h2>You must be signed in to use this feature.</h2>
       <button onClick={openModal} className="sign-in-button">Sign In</button>
     </div>
   );

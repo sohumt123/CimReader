@@ -1,6 +1,6 @@
-# React + TypeScript + Vite
+# CIMez Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the frontend application for CIMez, built with React + TypeScript + Vite. CIMez is an AI-powered PDF processing tool that generates intelligent summaries.
 
 Currently, two official plugins are available:
 
