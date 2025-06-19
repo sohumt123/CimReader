@@ -829,8 +829,8 @@ async def chat_with_pdf(
                 model="gpt-4.1-nano",  # Use 16k model for longer context
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": request.question}
-                ]  # Lower temperature for more accurate responses
+                    {"role": "user", "content": request.question}]
+              # Lower temperature for more accurate responses
             )
             
             answer = response.choices[0].message.content
