@@ -99,15 +99,15 @@ def sync_html_to_pdf(output_pdf_path: str, html_file_path: str = "output.html") 
         # Verify Playwright can launch browser
         try:
             with sync_playwright() as p:
-                # Find the correct Chromium executable path
-                import glob
-                chromium_paths = glob.glob("/Users/sohumtrivedi/Library/Caches/ms-playwright/chromium-*/chrome-mac/Chromium.app/Contents/MacOS/Chromium")
-                chromium_path = chromium_paths[0] if chromium_paths else None
+                # Get Playwright's default Chromium path
+                try:
+                    default_chromium_path = p.chromium.executable_path
+                    logger.info(f"Playwright default Chromium path: {default_chromium_path}")
+                except Exception as e:
+                    logger.warning(f"Could not get default Chromium path: {e}")
+                    default_chromium_path = None
                 
-                logger.info(f"Available Chromium paths: {chromium_paths}")
-                logger.info(f"Using Chromium path: {chromium_path}")
-                
-                # Try to launch browser with explicit executable path
+                # Enhanced launch options for cloud environments
                 launch_options = {
                     "headless": True,
                     "args": [
@@ -115,12 +115,25 @@ def sync_html_to_pdf(output_pdf_path: str, html_file_path: str = "output.html") 
                         '--disable-dev-shm-usage',
                         '--disable-gpu',
                         '--disable-web-security',
-                        '--disable-features=VizDisplayCompositor'
+                        '--disable-features=VizDisplayCompositor',
+                        '--disable-background-timer-throttling',
+                        '--disable-backgrounding-occluded-windows',
+                        '--disable-renderer-backgrounding',
+                        '--single-process',  # Important for constrained environments
+                        '--disable-extensions',
+                        '--disable-plugins',
+                        '--disable-images',  # Faster loading
+                        '--disable-javascript',  # Not needed for static content
+                        '--virtual-time-budget=10000'  # Timeout for loading
                     ]
                 }
                 
-                if chromium_path and os.path.exists(chromium_path):
-                    launch_options["executable_path"] = chromium_path
+                # Use explicit path if available and exists
+                if default_chromium_path and os.path.exists(default_chromium_path):
+                    launch_options["executable_path"] = default_chromium_path
+                    logger.info(f"Using Playwright default Chromium: {default_chromium_path}")
+                else:
+                    logger.info("Using system Chromium (no explicit path)")
                 
                 browser = p.chromium.launch(**launch_options)
                 page = browser.new_page()
