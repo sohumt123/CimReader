@@ -44,9 +44,15 @@ const PDFConverter = () => {
     formData.append('file', file);
 
     try {
+      console.log('Starting PDF conversion...');
+      console.log('API URL:', createApiUrl('convert-pdf'));
+      console.log('Auth token exists:', !!session.access_token);
+      
       const response = await axios.post(createApiUrl('convert-pdf'), formData, {
         headers: createAuthHeadersMultipart(session.access_token)
       });
+
+      console.log('PDF conversion response:', response);
 
       // The backend now returns JSON with public_url to a PDF and summary_id
       if (response.data && response.data.public_url) {
@@ -58,18 +64,32 @@ const PDFConverter = () => {
       }
     } catch (error) {
       let errorMessage = 'Error converting PDF';
-      if (axios.isAxiosError(error) && error.response?.data) {
-        // Handle JSON error response
-        if (error.response.data.detail) {
-          errorMessage = error.response.data.detail;
-        } else if (typeof error.response.data === 'string') {
-          errorMessage = error.response.data;
+      
+      console.error('Detailed conversion error:', error);
+      
+      if (axios.isAxiosError(error)) {
+        console.error('Request config:', error.config);
+        console.error('Response status:', error.response?.status);
+        console.error('Response data:', error.response?.data);
+        console.error('Response headers:', error.response?.headers);
+        
+        if (error.response?.data) {
+          // Handle JSON error response
+          if (error.response.data.detail) {
+            errorMessage = error.response.data.detail;
+          } else if (typeof error.response.data === 'string') {
+            errorMessage = error.response.data;
+          }
+        } else if (error.request) {
+          errorMessage = 'Network error - unable to reach server';
+          console.error('Network error - no response received:', error.request);
         }
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
+      
       toast.error(errorMessage);
-      console.error('Conversion error:', error);
+      console.error('Final error message:', errorMessage);
     } finally {
       setConverting(false);
       setShowLoadingBar(false);
