@@ -7,8 +7,12 @@ python --version
 echo "Installing Python packages..."
 pip install --upgrade pip
 
-# Install packages with specific Python 3.11 compatibility
-pip install -r requirements.txt
+# Use only pre-compiled wheels to avoid compilation issues
+echo "Installing packages with pre-compiled wheels only..."
+pip install --only-binary=all -r requirements.txt || {
+    echo "Failed with --only-binary, trying without compilation..."
+    pip install --prefer-binary -r requirements.txt
+}
 
 echo "Installing Playwright browsers..."
 playwright install chromium
