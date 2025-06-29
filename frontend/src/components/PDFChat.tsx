@@ -14,6 +14,7 @@ import { toast } from 'react-toastify';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
+import { createApiUrl, createAuthHeaders } from '../lib/api';
 
 interface Message {
   id: string;
@@ -70,12 +71,9 @@ const PDFChat: React.FC<PDFChatProps> = ({ documentId, documentTitle }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:8000/chat-pdf', {
+      const response = await fetch(createApiUrl('chat-pdf'), {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: createAuthHeaders(session.access_token),
         body: JSON.stringify({
           question: userMessage.content,
           document_id: documentId

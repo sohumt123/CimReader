@@ -4,6 +4,7 @@ import { useAuth } from './Auth';
 import { toast } from 'react-toastify';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
+import { createApiUrl, createAuthHeaders } from '../lib/api';
 
 interface Summary {
   id: string;
@@ -22,11 +23,8 @@ export function SummaryHistory() {
       if (!session) return;
 
       try {
-        const response = await fetch('http://localhost:8000/summaries', {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          }
+        const response = await fetch(createApiUrl('summaries'), {
+          headers: createAuthHeaders(session.access_token)
         });
         
         if (!response.ok) {
@@ -50,12 +48,9 @@ export function SummaryHistory() {
     if (!session) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/summaries/${summaryId}`, {
+      const response = await fetch(createApiUrl(`summaries/${summaryId}`), {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: createAuthHeaders(session.access_token)
       });
 
       if (!response.ok) {

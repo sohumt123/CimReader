@@ -7,6 +7,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useAuth } from './Auth';
 import PDFChat from './PDFChat';
+import { createApiUrl, createAuthHeadersMultipart } from '../lib/api';
 
 const PDFConverter = () => {
   const { session } = useAuth();
@@ -43,11 +44,8 @@ const PDFConverter = () => {
     formData.append('file', file);
 
     try {
-      const response = await axios.post('http://localhost:8000/convert-pdf', formData, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'multipart/form-data'
-        }
+      const response = await axios.post(createApiUrl('convert-pdf'), formData, {
+        headers: createAuthHeadersMultipart(session.access_token)
       });
 
       // The backend now returns JSON with public_url to a PDF and summary_id
