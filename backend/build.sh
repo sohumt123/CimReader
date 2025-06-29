@@ -4,15 +4,12 @@ set -e
 echo "Python version:"
 python --version
 
-echo "Installing Python packages..."
+echo "Upgrading pip..."
 pip install --upgrade pip
 
-# Use only pre-compiled wheels to avoid compilation issues
-echo "Installing packages with pre-compiled wheels only..."
-pip install --only-binary=all -r requirements.txt || {
-    echo "Failed with --only-binary, trying without compilation..."
-    pip install --prefer-binary -r requirements.txt
-}
+echo "Installing Python packages..."
+# Try pre-compiled wheels first, then fallback to regular install
+pip install --prefer-binary -r requirements.txt
 
 echo "Installing Playwright browsers..."
 playwright install chromium
