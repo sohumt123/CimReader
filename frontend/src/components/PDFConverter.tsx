@@ -7,7 +7,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useAuth } from './Auth';
 import PDFChat from './PDFChat';
-import { createApiUrl, createAuthHeadersMultipart } from '../lib/api';
+import { createApiUrl, createAuthHeadersMultipart } from '../lib/api.ts';
 
 const PDFConverter = () => {
   const { session } = useAuth();

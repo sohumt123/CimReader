@@ -14,7 +14,7 @@ import { toast } from 'react-toastify';
 import SendIcon from '@mui/icons-material/Send';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import PersonIcon from '@mui/icons-material/Person';
-import { createApiUrl, createAuthHeaders } from '../lib/api';
+import { createApiUrl, createAuthHeaders } from '../lib/api.ts';
 
 interface Message {
   id: string;

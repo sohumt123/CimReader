@@ -4,7 +4,7 @@ import { useAuth } from './Auth';
 import { toast } from 'react-toastify';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
-import { createApiUrl, createAuthHeaders } from '../lib/api';
+import { createApiUrl, createAuthHeaders } from '../lib/api.ts';
 
 interface Summary {
   id: string;
