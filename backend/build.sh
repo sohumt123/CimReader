@@ -3,14 +3,33 @@ set -e
 
 echo "Python version:"
 python --version
+python3 --version || echo "python3 not available"
 echo "Node version:"
 node --version || echo "Node not available"
+
+# Check if we're using a compatible Python version
+PYTHON_VERSION=$(python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+echo "Detected Python version: $PYTHON_VERSION"
+
+if [[ "$PYTHON_VERSION" == "3.13" ]]; then
+    echo "Warning: Python 3.13 detected. Some packages may not be compatible."
+    echo "Consider using Python 3.11 or 3.12 for better compatibility."
+fi
 
 echo "Upgrading pip..."
 pip install --upgrade pip
 
 echo "Installing Python packages..."
-pip install --prefer-binary -r requirements.txt
+# Install packages with explicit error handling
+pip install --prefer-binary -r requirements.txt || {
+    echo "Package installation failed. Trying with --force-reinstall..."
+    pip install --force-reinstall --prefer-binary -r requirements.txt || {
+        echo "Installation still failed. Trying individual packages..."
+        pip install fastapi uvicorn python-multipart python-dotenv openai pypdf jinja2
+        pip install sqlalchemy==2.0.25 greenlet==3.0.3
+        pip install postgrest-py supabase httpx PyMuPDF playwright==1.38.0 requests
+    }
+}
 
 echo "Installing Playwright system dependencies..."
 # The key is to install Playwright's system dependencies properly
