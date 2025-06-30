@@ -61,6 +61,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function AuthModal({ open, onClose, error }: { open: boolean, onClose: () => void, error?: string | null }) {
+  // Get the correct redirect URL based on environment
+  const getRedirectUrl = () => {
+    // Check for explicit redirect URL from environment variables
+    const envRedirectUrl = import.meta.env.VITE_SUPABASE_REDIRECT_URL
+    if (envRedirectUrl) {
+      return envRedirectUrl
+    }
+    
+    if (typeof window !== 'undefined') {
+      // Use the current origin (works for both dev and production)
+      return window.location.origin
+    }
+    return 'http://localhost:3000' // Fallback for SSR
+  }
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <div className="auth-modal-content" style={{ padding: 24, background: '#181c24' }}>
@@ -70,6 +85,7 @@ export function AuthModal({ open, onClose, error }: { open: boolean, onClose: ()
           appearance={{ theme: ThemeSupa }}
           providers={['google']}
           theme="dark"
+          redirectTo={getRedirectUrl()}
           localization={{
             variables: {
               sign_in: {

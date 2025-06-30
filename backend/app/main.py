@@ -433,251 +433,151 @@ async def debug_auth(current_user: dict = Depends(get_current_user)):
 
 @app.get("/debug-summaries")
 async def debug_summaries(current_user: dict = Depends(get_current_user)):
-    """Debug endpoint to test summaries fetch"""
     try:
-        logger.info(f"Debug summaries - User: {current_user}")
-        logger.info(f"Debug summaries - User ID: {current_user.id}")
-        logger.info(f"Debug summaries - User ID type: {type(current_user.id)}")
-        
-        # Test the sync database fetch
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(sync_database_fetch, current_user.id)
-            db_result = future.result(timeout=30)
-        
-        return {
-            "user_id": current_user.id,
-            "fetch_result": db_result
-        }
+        user_id = current_user['id']
+        # Fetch summaries for the user
+        response = supabase.table("summaries").select("*").eq("user_id", user_id).execute()
+        return response.data
     except Exception as e:
-        logger.error(f"Debug summaries error: {str(e)}")
-        return {
-            "error": str(e),
-            "error_type": str(type(e))
-        }
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 @app.post("/convert-pdf")
 async def convert_pdf(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    logger.info(f"Current user: {current_user}")
-    logger.info(f"Current user ID: {current_user.id if hasattr(current_user, 'id') else 'No ID attribute'}")
-    try:
-        # Create a temporary file to store the uploaded PDF
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-        try:
-            # Write the uploaded file to the temporary file
+    """
+    This endpoint does the following:
+    1.  Receives a PDF file.
+    2.  Runs an external Python script (`process_with_openai.py`) to:
+        a. Extract text from the PDF.
+        b. Send the text to OpenAI for processing (summarization, etc.).
+        c. Save the result as an HTML file (`output.html`).
+    3.  Converts the resulting `output.html` to a new PDF.
+    4.  Stores this new PDF in Supabase Storage.
+    5.  Stores metadata about the summary in the Supabase `summaries` table.
+    6.  Returns the public URL of the stored PDF and its summary ID.
+    """
+    user_id = current_user.get('id')
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Could not verify user.")
+
+    # Use a temporary directory for all file operations
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir_path = Path(temp_dir)
+        original_pdf_path = temp_dir_path / file.filename
+        
+        # Save the uploaded PDF to the temp directory
+        with open(original_pdf_path, "wb") as buffer:
             content = await file.read()
-            temp_file.write(content)
-            temp_file.close()
+            buffer.write(content)
+        
+        # Define paths for output files
+        output_html_path = Path("output.html") # Script writes to project root
+        output_pdf_path = temp_dir_path / f"output_{uuid.uuid4()}.pdf"
+        
+        # --- Run the OpenAI processing script ---
+        script_path = UTILS_DIR / "process_with_openai.py"
+        process = None
+        try:
+            # We run this in a separate process to handle its dependencies and environment
+            logger.info(f"Running OpenAI processing script for: {original_pdf_path}")
+            process = await asyncio.create_subprocess_exec(
+                "python", str(script_path), str(original_pdf_path),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            stdout, stderr = await process.communicate()
 
-            # Process the PDF with OpenAI
-            try:
-                logger.info("Starting OpenAI processing...")
-                result = subprocess.run(
-                    ["python3", str(UTILS_DIR / "process_with_openai.py"), temp_file.name],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                    cwd=str(ROOT_DIR),
-                    env=os.environ.copy()
-                )
-                logger.info(f"OpenAI processing stdout: {result.stdout}")
-                if result.stderr:
-                    logger.warning(f"OpenAI processing stderr: {result.stderr}")
-                
-                # Read the extracted text content for storage
-                extracted_text = ""
-                text_file_path = ROOT_DIR / "text.text"
-                if os.path.exists(text_file_path):
-                    with open(text_file_path, "r", encoding="utf-8") as f:
-                        extracted_text = f.read()
-                    logger.info(f"Read {len(extracted_text)} characters of extracted text")
-                else:
-                    logger.warning("text.text file not found after processing")
-                    
-            except subprocess.CalledProcessError as e:
-                logger.error(f"Error in OpenAI processing: {e.stderr}")
-                logger.error(f"Command output: {e.stdout}")
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Error in OpenAI processing: {e.stderr}"
-                )
-
-            # Convert HTML to PDF using thread executor
-            try:
-                logger.info("Converting HTML to PDF...")
-                output_pdf_path = f"output_{uuid.uuid4()}.pdf"
-                html_file_path = "output.html"
-                
-                # Check if HTML file exists before attempting conversion
-                if not os.path.exists(html_file_path):
-                    raise FileNotFoundError(f"HTML file not found: {html_file_path}")
-                
-                logger.info(f"HTML file found: {html_file_path}")
-                
-                # Use thread executor to run Playwright synchronously
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(sync_html_to_pdf, output_pdf_path, html_file_path)
-                    pdf_result = future.result(timeout=60)  # 60 second timeout for PDF generation
-                
-                if not pdf_result["success"]:
-                    logger.error(f"PDF conversion failed: {pdf_result['message']}")
-                    if 'error' in pdf_result:
-                        logger.error(f"PDF conversion error: {pdf_result['error']}")
-                    raise Exception(pdf_result["message"])
-                
-                logger.info(f"Successfully converted HTML to PDF: {output_pdf_path} (size: {pdf_result.get('pdf_size', 'unknown')} bytes)")
-                
-                # Read the generated PDF
-                if not os.path.exists(output_pdf_path):
-                    raise FileNotFoundError(f"PDF not found after conversion: {output_pdf_path}")
-                
-                with open(output_pdf_path, "rb") as f:
-                    pdf_content = f.read()
-                
-                logger.info(f"Successfully read {len(pdf_content)} bytes from PDF")
-                
-            except Exception as e:
-                logger.error(f"Error converting HTML to PDF: {str(e)}")
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Error converting HTML to PDF: {str(e)}"
-                )
-
-            # Store the PDF in Supabase Storage
-            try:
-                # Create a unique filename
-                filename = f"{uuid.uuid4()}.pdf"
-                logger.info(f"Storing PDF with filename: {filename}")
-                
-                # Upload to Supabase Storage
-                try:
-                    storage_client = supabase.storage.from_("summaries")
-                    storage_response = storage_client.upload(
-                        f"{current_user.id}/{filename}",
-                        pdf_content,
-                        {"content-type": "application/pdf"}
-                    )
-                except AttributeError as e:
-                    logger.error(f"Storage API error: {e}")
-                    # Try alternative storage access
-                    storage_response = supabase.storage().from_("summaries").upload(
-                        f"{current_user.id}/{filename}",
-                        pdf_content,
-                        {"content-type": "application/pdf"}
-                    )
-                
-                if not storage_response:
-                    raise Exception("Failed to upload to storage")
-                
-                logger.info("Successfully uploaded to Supabase storage")
-
-                # Get the public URL
-                try:
-                    public_url_response = supabase.storage.from_("summaries").get_public_url(f"{current_user.id}/{filename}")
-                    # Handle both cases: when it returns a string directly or an object with .data
-                    if isinstance(public_url_response, str):
-                        public_url = public_url_response
-                    else:
-                        public_url = public_url_response.data
-                except AttributeError:
-                    public_url_response = supabase.storage().from_("summaries").get_public_url(f"{current_user.id}/{filename}")
-                    if isinstance(public_url_response, str):
-                        public_url = public_url_response
-                    else:
-                        public_url = public_url_response.data
-                logger.info(f"Generated public URL: {public_url}")
-
-                # Store metadata in the summaries table
-                # Note: Only include extracted_text if the column exists in the database
-                summary_data = {
-                    "user_id": current_user.id,
-                    "original_filename": file.filename,
-                    "summary_pdf_url": public_url,
-                    "title": f"Summary of {file.filename}",
-                    "created_at": datetime.utcnow().isoformat()
-                }
-                
-                # Add extracted_text separately so we can handle column not existing
-                if extracted_text:
-                    summary_data["extracted_text"] = extracted_text
-                
-                logger.info("Storing summary metadata...")
-                logger.info(f"Summary data to insert: {summary_data}")
-                
-                # Use thread executor to run database insert synchronously
-                logger.info("Running database insert in thread executor to avoid async context issues...")
-                logger.info(f"Summary data: {summary_data}")
-                logger.info(f"User ID type: {type(current_user.id)}")
-                logger.info(f"User ID value: {current_user.id}")
-                
-                # Run the synchronous database insert in a thread pool
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(sync_database_insert, summary_data)
-                    db_result = future.result(timeout=30)  # 30 second timeout
-                
-                logger.info(f"Database insert result: {db_result}")
-                
-                if not db_result["success"]:
-                    logger.error(f"Database insert failed: {db_result['message']}")
-                    logger.error(f"Error type: {db_result.get('error_type', 'unknown')}")
-                    
-                    # Check if it's a UUID error
-                    if "invalid input syntax for type uuid" in str(db_result.get("error", "")):
-                        logger.error(f"UUID format error - user_id: {current_user.id}")
-                        raise Exception(f"Invalid user ID format: {current_user.id}")
-                    
-                    # Check if it's an extracted_text column error - try without it
-                    if "extracted_text" in str(db_result.get("error", "")) and "column" in str(db_result.get("error", "")):
-                        logger.warning("extracted_text column not found, trying insert without it...")
-                        summary_data_without_text = {k: v for k, v in summary_data.items() if k != 'extracted_text'}
-                        
-                        with ThreadPoolExecutor(max_workers=1) as executor:
-                            future = executor.submit(sync_database_insert, summary_data_without_text)
-                            retry_result = future.result(timeout=30)
-                        
-                        if not retry_result["success"]:
-                            raise Exception(retry_result["message"])
-                        
-                        logger.info("Successfully stored summary without extracted_text")
-                        db_result = retry_result  # Use the successful result
-                    else:
-                        raise Exception(db_result["message"])
-                
-                logger.info("Successfully stored summary metadata")
-                db_response_data = db_result["data"]
-
-                return {
-                    "message": "PDF processed successfully",
-                    "summary_id": db_response_data["id"],
-                    "public_url": public_url
-                }
-
-            except Exception as e:
-                logger.error(f"Error storing summary: {str(e)}")
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Error storing summary: {str(e)}"
-                )
-
-        finally:
-            # Clean up the temporary file
-            os.unlink(temp_file.name)
-            # Clean up the output files
-            for file_to_remove in ["text.text", "output.html"]:
-                if os.path.exists(file_to_remove):
-                    os.remove(file_to_remove)
-            # Clean up the generated PDF
-            if 'output_pdf_path' in locals() and os.path.exists(output_pdf_path):
-                os.remove(output_pdf_path)
-
-    except Exception as e:
-        logger.error(f"Error processing PDF: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing PDF: {str(e)}"
+            if process.returncode != 0:
+                logger.error("OpenAI processing script failed.")
+                logger.error(f"Stderr: {stderr.decode()}")
+                raise HTTPException(status_code=500, detail=f"Failed to process PDF with OpenAI: {stderr.decode()}")
+            
+            logger.info(f"OpenAI processing script stdout: {stdout.decode()}")
+            if stderr:
+                logger.warning(f"OpenAI processing stderr: {stderr.decode()}")
+        
+        except Exception as e:
+            logger.error(f"Error executing subprocess: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        
+        # --- Convert the resulting HTML to PDF ---
+        logger.info("Converting HTML to PDF...")
+        conversion_result = sync_html_to_pdf(
+            output_pdf_path=str(output_pdf_path),
+            html_file_path=str(output_html_path)
         )
+        
+        if not conversion_result.get("success"):
+            logger.error(f"HTML to PDF conversion failed: {conversion_result.get('error')}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Failed to convert summary to PDF: {conversion_result.get('error')}"
+            )
+        
+        logger.info(f"Successfully converted HTML to PDF: {output_pdf_path} (size: {conversion_result.get('pdf_size')})")
+        
+        # --- Store PDF in Supabase Storage and metadata in DB ---
+        storage_filename = f"{uuid.uuid4()}.pdf"
+        storage_file_path = f"{user_id}/{storage_filename}"
+        public_url = None
+        
+        try:
+            # Read the generated PDF content
+            with open(output_pdf_path, 'rb') as f:
+                pdf_content = f.read()
+            logger.info(f"Read {len(pdf_content)} bytes from generated PDF.")
+            
+            # 1. Upload to Storage
+            logger.info(f"Uploading to Supabase Storage at path: {storage_file_path}")
+            supabase.storage.from_("summaries").upload(
+                path=storage_file_path,
+                file=pdf_content,
+                file_options={"content-type": "application/pdf"}
+            )
+            logger.info("Successfully uploaded to Supabase storage.")
+
+            # 2. Get Public URL
+            public_url = supabase.storage.from_("summaries").get_public_url(storage_file_path)
+            logger.info(f"Generated public URL: {public_url}")
+
+            # 3. Store Metadata in Database
+            summary_data = {
+                "user_id": user_id,
+                "original_filename": file.filename,
+                "summary_pdf_url": public_url,
+                "storage_path": storage_file_path,
+                "title": f"Summary for {file.filename}",
+                "created_at": datetime.utcnow().isoformat()
+            }
+            
+            logger.info("Inserting summary metadata into database...")
+            db_response = sync_database_insert(summary_data)
+            
+            if not db_response.get("success"):
+                raise Exception(f"Database insert failed: {db_response.get('error')}")
+
+            db_response_data = db_response.get("data", {})
+            logger.info("Successfully stored summary metadata.")
+            
+            return {
+                "message": "PDF processed successfully",
+                "summary_id": db_response_data.get("id"),
+                "public_url": public_url
+            }
+
+        except Exception as e:
+            logger.error(f"An error occurred during Supabase operation: {str(e)}")
+            # Attempt to clean up the uploaded file if the DB insert fails
+            if public_url:
+                logger.info(f"Attempting to clean up failed upload at: {storage_file_path}")
+                sync_storage_delete(storage_file_path)
+            raise HTTPException(status_code=500, detail=f"Storage or database error: {str(e)}")
+        finally:
+            # Clean up the local output.html file
+            if os.path.exists(output_html_path):
+                os.remove(output_html_path)
 
 @app.get("/summaries", response_model=List[CIMSummary])
 async def get_summaries(user = Depends(get_current_user)):
