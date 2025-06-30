@@ -27,7 +27,7 @@ fi
 # --- End of Python version check ---
 
 echo "--- Installing dependencies ---"
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 echo "--- Installing Playwright browsers ---"
 # Install Playwright browsers and their dependencies
