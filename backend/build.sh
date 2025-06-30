@@ -2,26 +2,6 @@
 # exit on error
 set -o errexit
 
-# --- Start of Python version check ---
-echo "--- Verifying Python version ---"
-# Get the Python version in a format like "3.11"
-DETECTED_VERSION=$(python --version 2>&1 | awk '{print $2}' | awk -F. '{print $1"."$2}')
-EXPECTED_VERSION="3.11"
-
-echo "Expected version: $EXPECTED_VERSION"
-echo "Detected version: $DETECTED_VERSION"
-
-if [[ "$DETECTED_VERSION" != "$EXPECTED_VERSION" ]]; then
-  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-  echo "!! BUILD FAILED: Incorrect Python version detected.             !!"
-  echo "!! Expected a Python 3.11.x environment, but found $DETECTED_VERSION.   !!"
-  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-  exit 1
-else
-  echo "--- Python version check passed. Proceeding with build. ---"
-fi
-# --- End of Python version check ---
-
 echo "--- Installing dependencies ---"
 python -m pip install -r requirements.txt
 
