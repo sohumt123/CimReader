@@ -86,7 +86,7 @@ async def health_check():
         }
 
 def sync_html_to_pdf(output_pdf_path: str, html_file_path: str = "output.html") -> dict:
-    """Synchronous HTML to PDF conversion to avoid async context issues"""
+    """Synchronous HTML to PDF conversion using Playwright"""
     try:
         # Check if HTML file exists
         if not os.path.exists(html_file_path):
@@ -96,58 +96,61 @@ def sync_html_to_pdf(output_pdf_path: str, html_file_path: str = "output.html") 
                 "message": f"HTML file not found: {html_file_path}"
             }
         
-        # Verify Playwright can launch browser
+        logger.info(f"Converting HTML to PDF: {html_file_path} -> {output_pdf_path}")
+        
+        # Use Playwright to convert HTML to PDF
         try:
             with sync_playwright() as p:
-                # Get Playwright's default Chromium path
+                # Debug: Show what executable Playwright is trying to use
                 try:
-                    default_chromium_path = p.chromium.executable_path
-                    logger.info(f"Playwright default Chromium path: {default_chromium_path}")
+                    executable_path = p.chromium.executable_path
+                    logger.info(f"Playwright Chromium executable: {executable_path}")
+                    logger.info(f"Executable exists: {os.path.exists(executable_path)}")
                 except Exception as e:
-                    logger.warning(f"Could not get default Chromium path: {e}")
-                    default_chromium_path = None
+                    logger.warning(f"Could not get Chromium executable path: {e}")
                 
-                # Enhanced launch options for cloud environments
-                launch_options = {
-                    "headless": True,
-                    "args": [
+                # Debug: Show environment variables
+                logger.info(f"PLAYWRIGHT_BROWSERS_PATH: {os.getenv('PLAYWRIGHT_BROWSERS_PATH', 'Not set')}")
+                
+                # Debug: Try to find any Chromium installations
+                import glob
+                search_patterns = [
+                    "/opt/render/.cache/ms-playwright/chromium-*/chrome-linux/chrome",
+                    "/opt/render/.cache/ms-playwright/*/chrome-linux/chrome",
+                    "/usr/bin/chromium*",
+                    "/usr/bin/google-chrome*"
+                ]
+                
+                for pattern in search_patterns:
+                    matches = glob.glob(pattern)
+                    if matches:
+                        logger.info(f"Found browsers at pattern {pattern}: {matches}")
+                
+                # Simple launch with minimal options for Render.com
+                logger.info("Attempting to launch Chromium browser...")
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=[
                         '--no-sandbox',
                         '--disable-dev-shm-usage',
                         '--disable-gpu',
-                        '--disable-web-security',
-                        '--disable-features=VizDisplayCompositor',
-                        '--disable-background-timer-throttling',
-                        '--disable-backgrounding-occluded-windows',
-                        '--disable-renderer-backgrounding',
-                        '--single-process',  # Important for constrained environments
-                        '--disable-extensions',
-                        '--disable-plugins',
-                        '--disable-images',  # Faster loading
-                        '--disable-javascript',  # Not needed for static content
-                        '--virtual-time-budget=10000'  # Timeout for loading
+                        '--single-process'
                     ]
-                }
+                )
+                logger.info("Browser launched successfully")
                 
-                # Use explicit path if available and exists
-                if default_chromium_path and os.path.exists(default_chromium_path):
-                    launch_options["executable_path"] = default_chromium_path
-                    logger.info(f"Using Playwright default Chromium: {default_chromium_path}")
-                else:
-                    logger.info("Using system Chromium (no explicit path)")
-                
-                browser = p.chromium.launch(**launch_options)
                 page = browser.new_page()
+                logger.info("New page created")
                 
                 # Use absolute path for file URL
                 abs_html_path = "file://" + os.path.abspath(html_file_path)
                 logger.info(f"Loading HTML from: {abs_html_path}")
                 
                 page.goto(abs_html_path, wait_until='networkidle', timeout=30000)
-                
-                # Wait a moment for content to load
-                page.wait_for_timeout(2000)
+                logger.info("HTML page loaded successfully")
                 
                 # Generate PDF
+                logger.info("Generating PDF...")
                 page.pdf(
                     path=output_pdf_path, 
                     format='A4', 
@@ -159,14 +162,18 @@ def sync_html_to_pdf(output_pdf_path: str, html_file_path: str = "output.html") 
                         'right': '20px'
                     }
                 )
-                browser.close()
+                logger.info("PDF generated successfully")
                 
-        except Exception as browser_error:
+                browser.close()
+                logger.info("Browser closed")
+                
+        except Exception as conversion_error:
+            logger.error(f"Playwright conversion error: {str(conversion_error)}")
             return {
                 "success": False,
-                "error": str(browser_error),
-                "error_type": str(type(browser_error)),
-                "message": f"Browser error: {str(browser_error)}"
+                "error": str(conversion_error),
+                "error_type": str(type(conversion_error)),
+                "message": f"Playwright conversion error: {str(conversion_error)}"
             }
         
         # Verify PDF was created
