@@ -94,8 +94,8 @@ async def health_check():
             "supabase_error": str(e)
         }
 
-def sync_html_to_pdf(output_pdf_path: str, html_file_path: str = "output.html") -> dict:
-    """Synchronous HTML to PDF conversion using Playwright"""
+async def async_html_to_pdf(output_pdf_path: str, html_file_path: str = "output.html") -> dict:
+    """Asynchronous HTML to PDF conversion using Playwright's Async API"""
     try:
         # Check if HTML file exists
         if not os.path.exists(html_file_path):
@@ -107,37 +107,11 @@ def sync_html_to_pdf(output_pdf_path: str, html_file_path: str = "output.html") 
         
         logger.info(f"Converting HTML to PDF: {html_file_path} -> {output_pdf_path}")
         
-        # Use Playwright to convert HTML to PDF
+        # Use Playwright's Async API to convert HTML to PDF
         try:
-            with sync_playwright() as p:
-                # Debug: Show what executable Playwright is trying to use
-                try:
-                    executable_path = p.chromium.executable_path
-                    logger.info(f"Playwright Chromium executable: {executable_path}")
-                    logger.info(f"Executable exists: {os.path.exists(executable_path)}")
-                except Exception as e:
-                    logger.warning(f"Could not get Chromium executable path: {e}")
-                
-                # Debug: Show environment variables
-                logger.info(f"PLAYWRIGHT_BROWSERS_PATH: {os.getenv('PLAYWRIGHT_BROWSERS_PATH', 'Not set')}")
-                
-                # Debug: Try to find any Chromium installations
-                import glob
-                search_patterns = [
-                    "/opt/render/.cache/ms-playwright/chromium-*/chrome-linux/chrome",
-                    "/opt/render/.cache/ms-playwright/*/chrome-linux/chrome",
-                    "/usr/bin/chromium*",
-                    "/usr/bin/google-chrome*"
-                ]
-                
-                for pattern in search_patterns:
-                    matches = glob.glob(pattern)
-                    if matches:
-                        logger.info(f"Found browsers at pattern {pattern}: {matches}")
-                
-                # Simple launch with minimal options for Render.com
+            async with async_playwright() as p:
                 logger.info("Attempting to launch Chromium browser...")
-                browser = p.chromium.launch(
+                browser = await p.chromium.launch(
                     headless=True,
                     args=[
                         '--no-sandbox',
@@ -148,19 +122,19 @@ def sync_html_to_pdf(output_pdf_path: str, html_file_path: str = "output.html") 
                 )
                 logger.info("Browser launched successfully")
                 
-                page = browser.new_page()
+                page = await browser.new_page()
                 logger.info("New page created")
                 
                 # Use absolute path for file URL
                 abs_html_path = "file://" + os.path.abspath(html_file_path)
                 logger.info(f"Loading HTML from: {abs_html_path}")
                 
-                page.goto(abs_html_path, wait_until='networkidle', timeout=30000)
+                await page.goto(abs_html_path, wait_until='networkidle', timeout=30000)
                 logger.info("HTML page loaded successfully")
                 
                 # Generate PDF
                 logger.info("Generating PDF...")
-                page.pdf(
+                await page.pdf(
                     path=output_pdf_path, 
                     format='A4', 
                     print_background=True,
@@ -173,7 +147,7 @@ def sync_html_to_pdf(output_pdf_path: str, html_file_path: str = "output.html") 
                 )
                 logger.info("PDF generated successfully")
                 
-                browser.close()
+                await browser.close()
                 logger.info("Browser closed")
                 
         except Exception as conversion_error:
@@ -504,7 +478,7 @@ async def convert_pdf(
         
         # --- Convert the resulting HTML to PDF ---
         logger.info("Converting HTML to PDF...")
-        conversion_result = sync_html_to_pdf(
+        conversion_result = await async_html_to_pdf(
             output_pdf_path=str(output_pdf_path),
             html_file_path=str(output_html_path)
         )

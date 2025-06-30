@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Box, Paper, Typography, CircularProgress, Button, LinearProgress, Grid } from '@mui/material';
+import { Box, Paper, Typography, CircularProgress, Button, LinearProgress, Grid, Tooltip } from '@mui/material';
 import { useDropzone } from 'react-dropzone';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -96,6 +96,15 @@ const PDFConverter = () => {
     }
   };
 
+  const truncateFilename = (name: string, maxLength = 40) => {
+    if (name.length <= maxLength) {
+      return name;
+    }
+    const start = name.substring(0, maxLength / 2 - 2);
+    const end = name.substring(name.length - maxLength / 2 + 2);
+    return `${start}...${end}`;
+  };
+
   return (
     <Box sx={{ 
       maxWidth: 900, 
@@ -177,22 +186,28 @@ const PDFConverter = () => {
             : 'Drag and drop a PDF file here, or click to select'}
         </Typography>
         {file && (
-          <Typography 
-            variant="body1" 
-            sx={{
-              color: 'var(--text-secondary)',
-              fontSize: 'var(--font-size-base)',
-              fontWeight: 500,
-              backgroundColor: 'var(--bg-tertiary)',
-              px: 3,
-              py: 1,
-              borderRadius: 'var(--radius-lg)',
-              display: 'inline-block',
-              mt: 2
-            }}
-          >
-            Selected: {file.name}
-          </Typography>
+          <Tooltip title={file.name} arrow>
+            <Typography 
+              variant="body1" 
+              sx={{
+                color: 'var(--text-secondary)',
+                fontSize: 'var(--font-size-base)',
+                fontWeight: 500,
+                backgroundColor: 'var(--bg-tertiary)',
+                px: 3,
+                py: 1,
+                borderRadius: 'var(--radius-lg)',
+                display: 'inline-block',
+                mt: 2,
+                maxWidth: '100%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Selected: {truncateFilename(file.name)}
+            </Typography>
+          </Tooltip>
         )}
       </Paper>
 
