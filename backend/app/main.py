@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Header
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 import subprocess
 import os
@@ -54,17 +54,26 @@ app.add_middleware(
         "http://localhost:3000",   # React dev server (Vite default)
         "http://localhost:5173",   # Alternative Vite port
         "https://cim-reader.vercel.app",  # Your specific Vercel deployment
-        "https://*.vercel.app",    # Vercel deployments wildcard
-        "https://vercel.app"       # Vercel domain
+        "https://cim-reader.vercel.app/", # With trailing slash
+        "https://vercel.app",       # Vercel base domain
+        "https://cimreader.onrender.com",  # Allow backend to call itself
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
 @app.get("/")
 async def root():
     return {"message": "CIMez API is running"}
+
+@app.options("/{rest_of_path:path}")
+async def preflight_handler(request, rest_of_path: str):
+    response = Response()
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'POST, GET, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = '*'
+    return response
 
 @app.get("/health")
 async def health_check():
