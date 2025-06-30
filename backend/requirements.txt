@@ -9,7 +9,7 @@ sqlalchemy==2.0.23
 postgrest-py==0.10.3
 supabase==1.0.0
 httpx==0.24.1
-PyMuPDF==1.23.21
+PyMuPDF==1.20.2
 playwright==1.38.0
 greenlet==2.0.2
 requests==2.31.0
