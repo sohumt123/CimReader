@@ -458,7 +458,7 @@ async def convert_pdf(
     5.  Stores metadata about the summary in the Supabase `summaries` table.
     6.  Returns the public URL of the stored PDF and its summary ID.
     """
-    user_id = current_user.get('id')
+    user_id = current_user.id
     if not user_id:
         raise HTTPException(status_code=401, detail="Could not verify user.")
 
