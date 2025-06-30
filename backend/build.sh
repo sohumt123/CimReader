@@ -26,6 +26,13 @@ else
 fi
 # --- End of Python version check ---
 
+echo "--- Forcing C compiler flags to use the correct Python headers ---"
+PYTHON_PATH=$(which python)
+VENV_ROOT=$(dirname $(dirname "$PYTHON_PATH"))
+export CFLAGS="-I${VENV_ROOT}/include/python${DETECTED_VERSION}"
+export CPPFLAGS="-I${VENV_ROOT}/include/python${DETECTED_VERSION}"
+echo "CFLAGS and CPPFLAGS forced to: $CFLAGS"
+
 echo "--- Installing dependencies ---"
 python -m pip install -r requirements.txt
 
